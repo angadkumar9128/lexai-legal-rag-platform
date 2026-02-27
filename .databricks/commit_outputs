@@ -14,3 +14,9 @@
 # Uncomment the following pattern to include output for all notebooks
 # **
  
+notebooks/04_generate_embedding_Test.ipynb
+notebooks/05_rag_answer_pipeline_test.ipynb
+notebooks/04_generate_embeddings.ipynb
+notebooks/05_rag_answer_pipeline.ipynb
+notebooks/03_gold_chunking.ipynb
+notebooks/02_silver_processing.ipynb
