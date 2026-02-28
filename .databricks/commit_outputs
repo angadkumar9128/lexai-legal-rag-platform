@@ -20,3 +20,5 @@ notebooks/04_generate_embeddings.ipynb
 notebooks/05_rag_answer_pipeline.ipynb
 notebooks/03_gold_chunking.ipynb
 notebooks/02_silver_processing.ipynb
+notebooks/High-precision Legal Reasoning Engine.ipynb
+notebooks/01_bronze_ingestion.ipynb
