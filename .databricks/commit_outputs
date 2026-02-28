@@ -21,5 +21,18 @@
 # more examples can be found here: https://docs.databricks.com/repos/repos-setup.html#patterns-for-a-repo-config-file
 
 # Uncomment the following pattern to include output for all notebooks
+<<<<<<< HEAD
 
 **
+=======
+# **
+ 
+notebooks/04_generate_embedding_Test.ipynb
+notebooks/05_rag_answer_pipeline_test.ipynb
+notebooks/04_generate_embeddings.ipynb
+notebooks/05_rag_answer_pipeline.ipynb
+notebooks/03_gold_chunking.ipynb
+notebooks/02_silver_processing.ipynb
+notebooks/High-precision Legal Reasoning Engine.ipynb
+notebooks/01_bronze_ingestion.ipynb
+>>>>>>> 5081f5b302e691b329d12a59b0aa89f82eb8b991
