@@ -115,21 +115,56 @@ class NotebookEngine:
         return ""
 
     def _try_workspace_export_to_temp(self, candidate_path: str) -> Optional[Path]:
-        dbutils = self._get_dbutils()
-        if dbutils is None:
-            return None
+        def _normalize_for_workspace_api(path_str: str) -> str:
+            x = (path_str or "").strip()
+            if not x:
+                return x
+            # Workspace API paths are usually "/Users/..." (no /Workspace prefix)
+            if x.startswith("/Workspace/"):
+                x = "/" + x[len("/Workspace/"):]
+            # Workspace notebook objects usually do not include .ipynb extension
+            if x.endswith(".ipynb"):
+                x = x[:-6]
+            return x
 
-        for ws_path in self._workspace_path_variants(candidate_path):
-            try:
-                payload = dbutils.workspace.export(ws_path, format="JUPYTER")
-                txt = self._decode_export_payload(payload)
-                if not txt:
+        tmp_path = Path(tempfile.gettempdir()) / "lexai06_exported_from_workspace.ipynb"
+
+        # Attempt 1: dbutils.workspace.export (available in some runtimes)
+        dbutils = self._get_dbutils()
+        if dbutils is not None:
+            for ws_path_raw in self._workspace_path_variants(candidate_path):
+                ws_path = _normalize_for_workspace_api(ws_path_raw)
+                try:
+                    payload = dbutils.workspace.export(ws_path, format="JUPYTER")
+                    txt = self._decode_export_payload(payload)
+                    if not txt:
+                        continue
+                    tmp_path.write_text(txt, encoding="utf-8")
+                    return tmp_path
+                except Exception:
                     continue
-                tmp_path = Path(tempfile.gettempdir()) / "lexai06_exported_from_workspace.ipynb"
-                tmp_path.write_text(txt, encoding="utf-8")
-                return tmp_path
-            except Exception:
-                continue
+
+        # Attempt 2: databricks-sdk WorkspaceClient export (more portable)
+        try:
+            from databricks.sdk import WorkspaceClient
+            from databricks.sdk.service.workspace import ExportFormat
+
+            wc = WorkspaceClient()
+            for ws_path_raw in self._workspace_path_variants(candidate_path):
+                ws_path = _normalize_for_workspace_api(ws_path_raw)
+                try:
+                    resp = wc.workspace.export(path=ws_path, format=ExportFormat.JUPYTER)
+                    payload = getattr(resp, "content", None)
+                    txt = self._decode_export_payload(payload if payload is not None else resp)
+                    if not txt:
+                        continue
+                    tmp_path.write_text(txt, encoding="utf-8")
+                    return tmp_path
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
         return None
 
     def _read_notebook_json(self, nb_path: Path) -> Dict:
