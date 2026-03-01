@@ -513,3 +513,17 @@ Future contributors can:
 
 
 Just tell me 🚀
+
+---
+
+## API + UI Integration (Notebook 06)
+
+You can expose the high-precision QA engine behind API/UI now.
+
+See:
+
+- [apps/README.md](apps/README.md)
+- `apps/fastapi_app.py`
+- `apps/streamlit_app.py`
+
+This integration returns citation-rich responses (`answer`, `sections`, `citations`, `evidence`, latency metrics) and reuses notebook 06 runtime logic through a notebook adapter.
