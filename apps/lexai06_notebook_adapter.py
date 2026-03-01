@@ -1,11 +1,16 @@
 import json
+import os
 import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
 
-DEFAULT_NOTEBOOK_PATH = Path("notebooks/06_High-precision_QA_Legal_Reasoning_Engine.ipynb")
+NOTEBOOK_FILENAME = "06_High-precision_QA_Legal_Reasoning_Engine.ipynb"
+MODULE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = MODULE_DIR.parent
+DEFAULT_NOTEBOOK_PATH = REPO_ROOT / "notebooks" / NOTEBOOK_FILENAME
+SNAPSHOT_NOTEBOOK_PATH = MODULE_DIR / "notebook_06_snapshot.ipynb"
 # Global cell numbers to execute from notebook JSON.
 DEFAULT_EXEC_CELL_NUMBERS = [2, 3, 4, 5, 6, 7, 8, 9]
 
@@ -22,6 +27,7 @@ class NotebookEngine:
         self._runtime: Dict = {}
         self._ready = False
         self._ready_error = ""
+        self._resolved_notebook_path: Optional[Path] = None
 
     def _ensure_spark(self):
         spark = self._runtime.get("spark")
@@ -41,11 +47,60 @@ class NotebookEngine:
                 "Spark session not available. Run this adapter in Databricks or a Spark-enabled runtime."
             ) from exc
 
-    def _selected_code_cells(self) -> List[tuple]:
-        if not self.notebook_path.exists():
-            raise FileNotFoundError(f"Notebook not found: {self.notebook_path}")
+    def _resolve_notebook_path(self) -> Path:
+        # Highest priority: explicit environment override.
+        env_override = os.environ.get("LEXAI06_NOTEBOOK_PATH", "").strip()
+        if env_override:
+            p = Path(env_override)
+            if p.exists():
+                return p
 
-        nb = json.loads(self.notebook_path.read_text(encoding="utf-8"))
+        candidates = []
+
+        # Given path as-is and cwd-relative.
+        given = Path(self.notebook_path)
+        candidates.append(given)
+        if not given.is_absolute():
+            candidates.append(Path.cwd() / given)
+
+        # Repo-relative path (most reliable for Databricks Repos/workspace files).
+        candidates.append(REPO_ROOT / "notebooks" / NOTEBOOK_FILENAME)
+        if not given.is_absolute():
+            candidates.append(REPO_ROOT / given)
+        # Adapter-bundled snapshot fallback (works even if notebooks folder is absent in workspace mount).
+        candidates.append(SNAPSHOT_NOTEBOOK_PATH)
+
+        for p in candidates:
+            try:
+                if p.exists():
+                    return p.resolve()
+            except Exception:
+                continue
+
+        # Last-resort workspace search.
+        search_roots = [Path("/Workspace/Repos"), Path("/Workspace/Users"), Path("/Workspace")]
+        for root in search_roots:
+            if not root.exists():
+                continue
+            try:
+                for hit in root.rglob(NOTEBOOK_FILENAME):
+                    if hit.exists():
+                        return hit.resolve()
+            except Exception:
+                continue
+
+        searched = "\n - ".join([str(x) for x in candidates])
+        raise FileNotFoundError(
+            f"Notebook not found.\nSearched candidates:\n - {searched}\n"
+            f"Also searched roots for {NOTEBOOK_FILENAME}: /Workspace/Repos, /Workspace/Users, /Workspace\n"
+            f"Snapshot fallback path checked: {SNAPSHOT_NOTEBOOK_PATH}"
+        )
+
+    def _selected_code_cells(self) -> List[tuple]:
+        nb_path = self._resolve_notebook_path()
+        self._resolved_notebook_path = nb_path
+
+        nb = json.loads(nb_path.read_text(encoding="utf-8"))
         out = []
         for global_idx, cell in enumerate(nb.get("cells", []), start=1):
             if cell.get("cell_type") != "code":
@@ -56,7 +111,7 @@ class NotebookEngine:
             out.append((global_idx, src))
         if not out:
             raise RuntimeError(
-                f"No executable code cells found at positions {self.exec_cell_numbers} in {self.notebook_path}"
+                f"No executable code cells found at positions {self.exec_cell_numbers} in {nb_path}"
             )
         return out
 
@@ -73,11 +128,12 @@ class NotebookEngine:
             if "displayHTML" not in self._runtime:
                 self._runtime["displayHTML"] = lambda html: html
 
+            global_cell_num = "unknown"
             try:
                 for global_cell_num, src in self._selected_code_cells():
                     compiled = compile(
                         src,
-                        filename=f"{self.notebook_path}::cell_{global_cell_num}",
+                        filename=f"{self._resolved_notebook_path or self.notebook_path}::cell_{global_cell_num}",
                         mode="exec",
                     )
                     exec(compiled, self._runtime, self._runtime)
@@ -101,6 +157,7 @@ class NotebookEngine:
             "ready": self._ready,
             "error": self._ready_error,
             "notebook_path": str(self.notebook_path),
+            "resolved_notebook_path": str(self._resolved_notebook_path) if self._resolved_notebook_path else "",
             "exec_cell_numbers": list(self.exec_cell_numbers),
             "init_ms": self._runtime.get("_adapter_init_ms", 0.0),
             "data_signature": self._runtime.get("data_signature"),
@@ -141,5 +198,9 @@ def get_engine() -> NotebookEngine:
     if _ENGINE_SINGLETON is None:
         with _ENGINE_LOCK:
             if _ENGINE_SINGLETON is None:
-                _ENGINE_SINGLETON = NotebookEngine()
+                env_nb_path = os.environ.get("LEXAI06_NOTEBOOK_PATH", "").strip()
+                if env_nb_path:
+                    _ENGINE_SINGLETON = NotebookEngine(notebook_path=Path(env_nb_path))
+                else:
+                    _ENGINE_SINGLETON = NotebookEngine()
     return _ENGINE_SINGLETON
