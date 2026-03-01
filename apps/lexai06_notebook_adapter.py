@@ -132,12 +132,32 @@ class NotebookEngine:
                 continue
         return None
 
+    def _read_notebook_json(self, nb_path: Path) -> Dict:
+        """
+        Read notebook JSON from filesystem path. If path is a Databricks workspace
+        notebook object (exists but not readable via POSIX), export it to temp first.
+        """
+        try:
+            return json.loads(nb_path.read_text(encoding="utf-8"))
+        except Exception as read_exc:
+            exported = self._try_workspace_export_to_temp(str(nb_path))
+            if exported is not None and exported.exists():
+                self._resolved_notebook_path = exported.resolve()
+                return json.loads(exported.read_text(encoding="utf-8"))
+            raise read_exc
+
     def _resolve_notebook_path(self) -> Path:
         # Highest priority: explicit environment override.
         env_override = os.environ.get("LEXAI06_NOTEBOOK_PATH", "").strip()
         if env_override:
             p = Path(env_override)
             if p.exists():
+                # Workspace notebook objects often have no .ipynb extension and are
+                # not directly readable as regular files.
+                if p.suffix.lower() != ".ipynb":
+                    exported = self._try_workspace_export_to_temp(env_override)
+                    if exported is not None and exported.exists():
+                        return exported
                 return p
             exported = self._try_workspace_export_to_temp(env_override)
             if exported is not None and exported.exists():
@@ -161,6 +181,10 @@ class NotebookEngine:
         for p in candidates:
             try:
                 if p.exists():
+                    if p.suffix.lower() != ".ipynb":
+                        exported = self._try_workspace_export_to_temp(str(p))
+                        if exported is not None and exported.exists():
+                            return exported.resolve()
                     return p.resolve()
             except Exception:
                 continue
@@ -191,7 +215,7 @@ class NotebookEngine:
         nb_path = self._resolve_notebook_path()
         self._resolved_notebook_path = nb_path
 
-        nb = json.loads(nb_path.read_text(encoding="utf-8"))
+        nb = self._read_notebook_json(nb_path)
         out = []
         for global_idx, cell in enumerate(nb.get("cells", []), start=1):
             if cell.get("cell_type") != "code":
