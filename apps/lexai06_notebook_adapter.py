@@ -1,5 +1,7 @@
 import json
 import os
+import base64
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -47,6 +49,89 @@ class NotebookEngine:
                 "Spark session not available. Run this adapter in Databricks or a Spark-enabled runtime."
             ) from exc
 
+    def _get_dbutils(self):
+        # Databricks runtime path 1: DBUtils from pyspark
+        try:
+            from pyspark.dbutils import DBUtils
+            spark = self._ensure_spark()
+            return DBUtils(spark)
+        except Exception:
+            pass
+
+        # Databricks runtime path 2: notebook global `dbutils`
+        try:
+            import builtins
+            dbu = getattr(builtins, "dbutils", None)
+            if dbu is not None:
+                return dbu
+        except Exception:
+            pass
+
+        return None
+
+    def _workspace_path_variants(self, raw_path: str) -> List[str]:
+        p = (raw_path or "").strip()
+        if not p:
+            return []
+
+        variants = []
+
+        def _add(x: str):
+            x = x.strip()
+            if x and x not in variants:
+                variants.append(x)
+
+        _add(p)
+
+        # Normalize /Workspace/<...> -> /<...> for workspace API calls
+        if p.startswith("/Workspace/"):
+            _add("/" + p[len("/Workspace/"):])
+        elif p.startswith("/"):
+            _add("/Workspace" + p)
+
+        # Add path without .ipynb (workspace notebook object can be extensionless)
+        for x in list(variants):
+            if x.endswith(".ipynb"):
+                _add(x[:-6])
+            else:
+                _add(x + ".ipynb")
+
+        return variants
+
+    def _decode_export_payload(self, payload) -> str:
+        if payload is None:
+            return ""
+        txt = str(payload)
+        if txt.lstrip().startswith("{") and '"cells"' in txt:
+            return txt
+
+        # Sometimes export payload can be base64-encoded
+        try:
+            dec = base64.b64decode(txt).decode("utf-8", errors="ignore")
+            if dec.lstrip().startswith("{") and '"cells"' in dec:
+                return dec
+        except Exception:
+            pass
+        return ""
+
+    def _try_workspace_export_to_temp(self, candidate_path: str) -> Optional[Path]:
+        dbutils = self._get_dbutils()
+        if dbutils is None:
+            return None
+
+        for ws_path in self._workspace_path_variants(candidate_path):
+            try:
+                payload = dbutils.workspace.export(ws_path, format="JUPYTER")
+                txt = self._decode_export_payload(payload)
+                if not txt:
+                    continue
+                tmp_path = Path(tempfile.gettempdir()) / "lexai06_exported_from_workspace.ipynb"
+                tmp_path.write_text(txt, encoding="utf-8")
+                return tmp_path
+            except Exception:
+                continue
+        return None
+
     def _resolve_notebook_path(self) -> Path:
         # Highest priority: explicit environment override.
         env_override = os.environ.get("LEXAI06_NOTEBOOK_PATH", "").strip()
@@ -54,6 +139,9 @@ class NotebookEngine:
             p = Path(env_override)
             if p.exists():
                 return p
+            exported = self._try_workspace_export_to_temp(env_override)
+            if exported is not None and exported.exists():
+                return exported
 
         candidates = []
 
@@ -76,6 +164,9 @@ class NotebookEngine:
                     return p.resolve()
             except Exception:
                 continue
+            exported = self._try_workspace_export_to_temp(str(p))
+            if exported is not None and exported.exists():
+                return exported.resolve()
 
         # Last-resort workspace search.
         search_roots = [Path("/Workspace/Repos"), Path("/Workspace/Users"), Path("/Workspace")]
