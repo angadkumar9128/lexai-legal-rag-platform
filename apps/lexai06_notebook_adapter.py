@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 
 
 NOTEBOOK_FILENAME = "06_High-precision_QA_Legal_Reasoning_Engine.ipynb"
+NOTEBOOK_OBJECT_NAME = NOTEBOOK_FILENAME[:-6] if NOTEBOOK_FILENAME.endswith(".ipynb") else NOTEBOOK_FILENAME
 MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
 DEFAULT_NOTEBOOK_PATH = REPO_ROOT / "notebooks" / NOTEBOOK_FILENAME
@@ -220,6 +221,9 @@ class NotebookEngine:
                         exported = self._try_workspace_export_to_temp(str(p))
                         if exported is not None and exported.exists():
                             return exported.resolve()
+                        # Extensionless workspace notebook object that could not be exported.
+                        # Do not return unreadable POSIX path; continue trying fallbacks.
+                        continue
                     return p.resolve()
             except Exception:
                 continue
@@ -236,6 +240,14 @@ class NotebookEngine:
                 for hit in root.rglob(NOTEBOOK_FILENAME):
                     if hit.exists():
                         return hit.resolve()
+            except Exception:
+                continue
+            try:
+                for hit in root.rglob(NOTEBOOK_OBJECT_NAME):
+                    if hit.exists():
+                        exported = self._try_workspace_export_to_temp(str(hit))
+                        if exported is not None and exported.exists():
+                            return exported.resolve()
             except Exception:
                 continue
 
