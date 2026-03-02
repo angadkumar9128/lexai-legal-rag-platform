@@ -194,7 +194,10 @@ class NotebookEngine:
                     exported = self._try_workspace_export_to_temp(env_override)
                     if exported is not None and exported.exists():
                         return exported
-                return p
+                    # Do not return an extensionless workspace object directly; it may
+                    # exist but be unreadable in serverless filesystems (Errno 95).
+                else:
+                    return p
             exported = self._try_workspace_export_to_temp(env_override)
             if exported is not None and exported.exists():
                 return exported
