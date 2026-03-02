@@ -4,14 +4,50 @@ from typing import Dict
 import requests
 import streamlit as st
 
+from apps.lexai06_notebook_adapter import get_engine
 
 API_BASE_URL = os.environ.get("LEXAI_API_BASE_URL", "http://127.0.0.1:8000")
 ANSWER_ENDPOINT = f"{API_BASE_URL.rstrip('/')}/v1/legal/answer"
 LATENCY_ENDPOINT = f"{API_BASE_URL.rstrip('/')}/v1/legal/latency"
 HEALTH_ENDPOINT = f"{API_BASE_URL.rstrip('/')}/health"
+USE_DIRECT_ENGINE = os.environ.get("LEXAI_STREAMLIT_DIRECT_ENGINE", "0").strip() == "1"
+_ENGINE = None
+
+
+def _normalize_direct_payload(query: str, payload: Dict) -> Dict:
+    citations = [{"citation_text": str(x)} for x in payload.get("citations", [])]
+    return {
+        "query": query,
+        "answer": str(payload.get("answer", "")).strip(),
+        "sections": [str(x).strip() for x in payload.get("sections", []) if str(x).strip()],
+        "citations": citations,
+        "mode": str(payload.get("mode", "unknown")),
+        "retrieval_source": str(payload.get("source", "unknown")),
+        "confidence": str(payload.get("confidence", "na")),
+        "preferences": payload.get("preferences", {}) or {},
+        "latency_ms": payload.get("latency_ms", {}) or {},
+        "latency_profile": payload.get("latency_profile", {}) or {},
+        "evidence": payload.get("evidence", []) or [],
+    }
+
+
+def _direct_answer(query: str, style: str, word_limit: int) -> Dict:
+    global _ENGINE
+    if _ENGINE is None:
+        _ENGINE = get_engine()
+    q = query.strip()
+    if style and style != "none":
+        q += f" in {style}"
+    if word_limit and int(word_limit) > 0:
+        q += f" within {int(word_limit)} words"
+    payload = _ENGINE.answer_query(q)
+    return _normalize_direct_payload(query=query.strip(), payload=payload)
 
 
 def call_api(query: str, style: str, word_limit: int) -> Dict:
+    if USE_DIRECT_ENGINE:
+        return _direct_answer(query=query, style=style, word_limit=word_limit)
+
     payload = {
         "query": query,
         "style": style if style != "none" else None,
@@ -38,13 +74,17 @@ st.caption("Citation-rich legal responses via FastAPI adapter")
 with st.sidebar:
     st.subheader("Configuration")
     st.write(f"`API_BASE_URL`: `{API_BASE_URL}`")
+    st.write(f"`DIRECT_ENGINE_MODE`: `{USE_DIRECT_ENGINE}`")
     style = st.selectbox("Response Style", options=["none", "very short", "short", "normal", "detailed"], index=2)
     word_limit = st.number_input("Word Limit (optional)", min_value=0, max_value=400, value=120, step=10)
     show_evidence = st.checkbox("Show top evidence", value=True)
     show_latency = st.checkbox("Show latency metrics", value=True)
 
     if st.button("Check API Health"):
-        health = fetch_json(HEALTH_ENDPOINT)
+        if USE_DIRECT_ENGINE:
+            health = {"ok": True, "status": "direct_engine_mode"}
+        else:
+            health = fetch_json(HEALTH_ENDPOINT)
         st.json(health)
 
 query = st.text_area(
@@ -58,7 +98,15 @@ with cols[0]:
     run = st.button("Get Answer", type="primary")
 with cols[1]:
     if st.button("Show Latency Profile"):
-        lp = fetch_json(LATENCY_ENDPOINT)
+        if USE_DIRECT_ENGINE:
+            try:
+                if _ENGINE is None:
+                    _ENGINE = get_engine()
+                lp = {"ok": True, "latency_profile": _ENGINE.latency_profile()}
+            except Exception as exc:
+                lp = {"ok": False, "error": str(exc)}
+        else:
+            lp = fetch_json(LATENCY_ENDPOINT)
         st.json(lp)
 
 if run:
