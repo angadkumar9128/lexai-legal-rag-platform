@@ -13,6 +13,7 @@ NOTEBOOK_OBJECT_NAME = NOTEBOOK_FILENAME[:-6] if NOTEBOOK_FILENAME.endswith(".ip
 MODULE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = MODULE_DIR.parent
 DEFAULT_NOTEBOOK_PATH = REPO_ROOT / "notebooks" / NOTEBOOK_FILENAME
+SNAPSHOT_NOTEBOOK_JSON_PATH = MODULE_DIR / "notebook_06_snapshot.json"
 SNAPSHOT_NOTEBOOK_PATH = MODULE_DIR / "notebook_06_snapshot.ipynb"
 # Global cell numbers to execute from notebook JSON.
 DEFAULT_EXEC_CELL_NUMBERS = [2, 3, 4, 5, 6, 7, 8, 9]
@@ -188,16 +189,17 @@ class NotebookEngine:
         if env_override:
             p = Path(env_override)
             if p.exists():
-                # Workspace notebook objects often have no .ipynb extension and are
-                # not directly readable as regular files.
-                if p.suffix.lower() != ".ipynb":
+                # Use regular filesystem files directly (.ipynb, .json, etc.).
+                if p.suffix:
+                    return p
+                # Workspace notebook objects often have no extension and are not
+                # directly readable as regular files.
+                if p.suffix == "":
                     exported = self._try_workspace_export_to_temp(env_override)
                     if exported is not None and exported.exists():
                         return exported
                     # Do not return an extensionless workspace object directly; it may
                     # exist but be unreadable in serverless filesystems (Errno 95).
-                else:
-                    return p
             exported = self._try_workspace_export_to_temp(env_override)
             if exported is not None and exported.exists():
                 return exported
@@ -214,20 +216,24 @@ class NotebookEngine:
         candidates.append(REPO_ROOT / "notebooks" / NOTEBOOK_FILENAME)
         if not given.is_absolute():
             candidates.append(REPO_ROOT / given)
-        # Adapter-bundled snapshot fallback (works even if notebooks folder is absent in workspace mount).
+        # Adapter-bundled snapshot fallbacks.
+        # JSON snapshot is a regular file and is robust in Databricks Repos where
+        # notebook objects may be extensionless/unreadable from POSIX.
+        candidates.append(SNAPSHOT_NOTEBOOK_JSON_PATH)
         candidates.append(SNAPSHOT_NOTEBOOK_PATH)
 
         for p in candidates:
             try:
                 if p.exists():
-                    if p.suffix.lower() != ".ipynb":
+                    if p.suffix:
+                        return p.resolve()
+                    if p.suffix == "":
                         exported = self._try_workspace_export_to_temp(str(p))
                         if exported is not None and exported.exists():
                             return exported.resolve()
                         # Extensionless workspace notebook object that could not be exported.
                         # Do not return unreadable POSIX path; continue trying fallbacks.
                         continue
-                    return p.resolve()
             except Exception:
                 continue
             exported = self._try_workspace_export_to_temp(str(p))
@@ -258,7 +264,7 @@ class NotebookEngine:
         raise FileNotFoundError(
             f"Notebook not found.\nSearched candidates:\n - {searched}\n"
             f"Also searched roots for {NOTEBOOK_FILENAME}: /Workspace/Repos, /Workspace/Users, /Workspace\n"
-            f"Snapshot fallback path checked: {SNAPSHOT_NOTEBOOK_PATH}"
+            f"Snapshot fallback paths checked: {SNAPSHOT_NOTEBOOK_JSON_PATH}, {SNAPSHOT_NOTEBOOK_PATH}"
         )
 
     def _selected_code_cells(self) -> List[tuple]:
