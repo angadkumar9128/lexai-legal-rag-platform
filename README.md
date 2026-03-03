@@ -1,437 +1,529 @@
-# LexAI Legal RAG Platform
 
-Production-oriented legal intelligence platform for Indian law and compliance use cases, built with Databricks Lakehouse for preprocessing and a retrieval/generation stack for question answering.
+# **LexAI — Legal RAG & Semantic Intelligence Platform**
 
-## 1. Executive Summary
+---
 
-LexAI ingests legal PDFs, structures them into legal sections and semantic chunks, generates embeddings, and serves citation-rich legal answers.
+## 🚀 Project Overview
 
-Current recommended operating model:
+**LexAI** is a scalable Legal Intelligence Platform built on the Databricks Lakehouse that transforms raw legal documents into structured knowledge and enables **semantic search and Retrieval-Augmented Generation (RAG)** over legal content.
 
-- Databricks: ingestion, structuring, chunking, batch embedding generation, governed storage.
-- Local or app-serving runtime: low-latency retrieval, reranking, answer generation, FastAPI/Streamlit UI.
+The platform ingests legal PDFs, extracts structured legal sections, generates semantic embeddings, and allows natural language queries to retrieve relevant legal provisions.
 
-This split gives:
+This system is designed for:
 
-- Lower online latency.
-- Better control of serving stack and debugging.
-- Cleaner scaling path (data pipeline and serving pipeline scale independently).
+* legal research automation
+* compliance & regulatory intelligence
+* AI-powered legal assistants
+* enterprise policy search
+* legal knowledge management
 
-## 2. Business and Technical Goals
+---
 
-- Build a reliable legal knowledge pipeline over large legal corpora.
-- Support natural-language legal/compliance queries.
-- Return structured responses with section references and citations.
-- Keep pipeline idempotent and restart-safe across Databricks serverless sessions.
-- Prepare for enterprise controls (governance, lineage, auditability, reproducibility).
+## 🎯 Project Objectives
 
-## 3. Scope and Non-Scope
+LexAI aims to:
 
-In scope:
+✔ Convert raw legal documents into structured legal knowledge
+✔ Enable natural language legal search
+✔ Provide high-accuracy semantic retrieval
+✔ Support enterprise-scale legal intelligence
+✔ Serve as a foundation for legal AI assistants
 
-- Medallion data engineering pipeline (Bronze, Silver, Gold).
-- Embedding generation and persistence.
-- Retrieval and answer pipeline notebooks.
-- API/UI wrapper for notebook-06 runtime.
+---
 
-Out of scope (current branch):
+## 🧠 Core Capabilities
 
-- Full model fine-tuning pipeline.
-- Court-grade legal validation.
-- Guaranteed jurisdictional legal advice.
+### ✅ Data Engineering
 
-## 4. Repository Structure
+* PDF ingestion & parsing
+* metadata extraction
+* legal structure detection
+* medallion lakehouse architecture
 
-```text
-lexai-legal-rag-platform/
-  apps/
-    fastapi_app.py
-    streamlit_app.py
-    lexai06_notebook_adapter.py
-    notebook_06_snapshot.ipynb
-    notebook_06_snapshot.json
-    requirements.txt
-    schemas.py
-  notebooks/
-    01_bronze_ingestion.ipynb
-    02_silver_processing.ipynb
-    03_gold_chunking.ipynb
-    04_generate_embeddings.ipynb
-    04_generate_embedding_Test.ipynb
-    05_rag_answer_pipeline.ipynb
-    05_rag_answer_pipeline_test.ipynb
-    06_High-precision_QA_Legal_Reasoning_Engine.ipynb
-    07_one_click_lexai_runner.ipynb
-  lexai_Data_file_structure.md
-  lexai-legal-rag-platform_working_docs.md
-  README.md
+### ✅ AI & NLP
+
+* semantic chunking
+* transformer-based embeddings
+* vector similarity search
+
+### ✅ Search & Retrieval
+
+* semantic search over legal text
+* context-aware retrieval
+* natural language query support
+
+### ✅ Platform & Scalability
+
+* Databricks Lakehouse architecture
+* Unity Catalog governance
+* Delta Lake storage
+* scalable distributed processing
+
+---
+
+## 🏗️ System Architecture
+
 ```
-
-## 5. Data Domains
-
-The project is designed to support corpus folders such as:
-
-- `constitution`
-- `acts`
-- `criminal_law`
-- `civil_law`
-- `family_law`
-- `traffic_rules`
-- `judgments`
-- `reports`
-
-Typical source path:
-
-`/Volumes/workspace/legal_data/raw_documents/legal_datasets/`
-
-## 6. End-to-End Architecture
-
-```text
 Raw PDFs
-  -> Bronze: text + metadata extraction
-  -> Silver: legal section structuring
-  -> Gold: semantic chunking
-  -> Embeddings: vectorization + artifact persistence
-  -> Retrieval: lexical + dense + rerank
-  -> QA: formatted legal answer with citations
-  -> API/UI: FastAPI and Streamlit
+   ↓
+Bronze Layer  → text extraction & metadata
+   ↓
+Silver Layer  → legal sections & structure
+   ↓
+Gold Layer    → semantic chunks
+   ↓
+Vector Index  → embeddings & similarity search
+   ↓
+Semantic Search / RAG
 ```
 
-## 7. Databricks Storage and Catalog
+---
 
-Base volume:
+## 🧱 Medallion Architecture
 
-`/Volumes/workspace/legal_data/`
+### 🔹 Bronze Layer
 
-Key physical paths:
+Extracts raw text and metadata from legal PDFs.
 
-- Bronze files: `/Volumes/workspace/legal_data/bronze/legal_documents/`
-- Silver files: `/Volumes/workspace/legal_data/silver/legal_sections/`
-- Gold files: `/Volumes/workspace/legal_data/gold/legal_chunks/`
-- Embedding delta artifacts: `/Volumes/workspace/legal_data/vector_db_test/legal_embeddings_delta/`
-- Optional Chroma files: `/Volumes/workspace/legal_data/chroma_db/` and `/Volumes/workspace/legal_data/vector_db_test/`
+**Output:**
 
-Typical managed table names used in this project family:
+* document text
+* file metadata
+* ingestion metadata
 
-- `workspace.default.bronze_legal_documents`
-- `workspace.default.silver_legal_sections`
-- `workspace.default.gold_legal_chunks`
+---
 
-Note:
+### 🔹 Silver Layer
 
-- Use your actual catalog/schema if different.
-- Delta embedding storage is the durable source of truth for recovery across serverless restarts.
+Structures legal documents into logical legal units.
 
-## 8. Notebook Responsibilities
+**Extracts:**
 
-### `01_bronze_ingestion.ipynb`
+* sections
+* subsections
+* legal numbering
+* act references
 
-- Parse raw PDFs.
-- Extract text and metadata.
-- Persist bronze records.
+---
 
-### `02_silver_processing.ipynb`
+### 🔹 Gold Layer
 
-- Segment documents into legal sections.
-- Persist section-level structure.
+Optimizes content for AI search.
 
-### `03_gold_chunking.ipynb`
+**Includes:**
 
-- Create semantic chunks from section text.
-- Preserve legal context boundaries.
+* semantic chunks
+* context-preserving segmentation
+* search-optimized formatting
 
-### `04_generate_embedding_Test.ipynb`
+---
 
-- Generate embeddings from Gold chunks.
-- Persist vectors and metadata to durable Delta path.
-- Optionally build Chroma runtime artifacts.
+### 🔹 Vector Layer
 
-### `05_rag_answer_pipeline_test.ipynb`
+Transforms chunks into embeddings for semantic retrieval.
 
-- Retrieval-first QA flow.
-- Pull top legal context for a query.
-- Basic structured legal response.
+---
 
-### `06_High-precision_QA_Legal_Reasoning_Engine.ipynb`
+### 🔹 Search Layer
 
-- Higher-precision retrieval logic (routing, lexical/dense blend, rerank).
-- Better response structure and evidence packaging.
-- Latency metrics and confidence-aware behavior.
+Allows natural language legal search and retrieval.
 
-### `07_one_click_lexai_runner.ipynb`
+---
 
-- Orchestrator notebook for quick setup and app bootstrapping.
-- Useful for smoke testing.
-- On free serverless, UI URL exposure may still be limited by platform networking.
+## 📊 Data Flow Pipeline
 
-## 9. Runtime Components
-
-### Retrieval and QA
-
-- Embedder: `sentence-transformers/all-MiniLM-L6-v2`
-- Reranker: `cross-encoder/ms-marco-MiniLM-L-6-v2`
-- LLM backend: notebook-06 configured backend (Databricks endpoint or local fallback path depending on runtime)
-
-### Serving Layer
-
-- FastAPI app: `apps/fastapi_app.py`
-- Streamlit app: `apps/streamlit_app.py`
-- Notebook adapter: `apps/lexai06_notebook_adapter.py`
-
-Adapter behavior:
-
-- Loads selected cells from notebook-06 runtime logic.
-- Supports workspace notebook export fallback and snapshot fallback.
-- Returns normalized response payload (answer, sections, citations, evidence, latency).
-
-## 10. Recommended Architecture Decision
-
-For minimum query latency, flexibility, and future scale, use:
-
-1. Databricks for preprocessing and batch embedding generation.
-2. Local or dedicated app-serving runtime for retrieval, rerank, generation, API/UI.
-
-Do not use Databricks serverless as the only UI hosting layer for production-style app access. Keep it for pipeline compute and data governance.
-
-## 11. Deployment Profiles
-
-### Profile A: Databricks-native (works on current codebase)
-
-- Use notebooks for preprocessing and QA.
-- Use adapter-based API/UI from Databricks runtime.
-- Best for development and validation.
-- On free serverless, browser URL exposure can be unstable.
-
-### Profile B: Hybrid (recommended production direction)
-
-- Databricks: preprocessing and batch embeddings.
-- Local or dedicated app runtime: retrieval, rerank, generation, API/UI.
-- Requires local-serving engine that does not depend on Databricks `dbutils` at query time.
-- This is the recommended next phase for stable UI hosting and lower latency control.
-
-## 12. Setup Guide
-
-### 12.1 Databricks Prerequisites
-
-- Unity Catalog enabled workspace.
-- Volume available at `/Volumes/workspace/legal_data/`.
-- Access to create/read Delta tables in target catalog/schema.
-- Required library installs in notebook runtime (`sentence-transformers`, `transformers`, `accelerate`, `mlflow`, `databricks-sdk`, plus app packages).
-
-### 12.2 Local Prerequisites
-
-- Python 3.10+
-- Git
-- Optional: GPU runtime for faster rerank/generation
-
-From repo root:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install --upgrade pip
-pip install -r apps/requirements.txt
+```
+PDF → Bronze → Silver → Gold → Embeddings → Vector DB → Search
 ```
 
-Additional ML/runtime packages may be required depending on notebook-06 logic:
+---
 
-```bash
-pip install sentence-transformers transformers accelerate mlflow databricks-sdk
+## 🗂️ Databricks Workspace Structure
+
+```
+Workspace/
+│
+├── Legal_Intelligence_Project/
+│
+│   01_bronze_ingestion
+│   02_silver_structuring
+│   03_gold_chunking
+│   04_vector_embedding
+│   05_semantic_search
+│   06_rag_pipeline        (future)
+│   07_evaluation_metrics  (future)
+│
+├── utils/
+│   pdf_parser.py
+│   section_extractor.py
+│   chunking_utils.py
+│   embedding_utils.py
+│
+├── config/
+│   paths_config.py
+│   model_config.py
+│
+└── docs/
+    architecture.md
+    data_dictionary.md
 ```
 
-Important:
+---
 
-- Current `apps/lexai06_notebook_adapter.py` executes notebook-06 logic and expects Spark-enabled runtime.
-- Pure local serving without Databricks dependencies should be treated as a migration step (next phase), not a guaranteed current-state path.
+## 📁 Data Storage Structure (Unity Catalog Volume)
 
-## 13. Runbook
-
-### 13.1 Data Pipeline Run Order (Databricks)
-
-Run in order:
-
-1. `01_bronze_ingestion.ipynb`
-2. `02_silver_processing.ipynb`
-3. `03_gold_chunking.ipynb`
-4. `04_generate_embedding_Test.ipynb`
-5. `05_rag_answer_pipeline_test.ipynb`
-6. `06_High-precision_QA_Legal_Reasoning_Engine.ipynb`
-
-Use `07_one_click_lexai_runner.ipynb` for convenience, not as a strict production control plane.
-
-### 13.2 API Run
-
-```bash
-uvicorn apps.fastapi_app:app --host 0.0.0.0 --port 8000
+```
+/Volumes/workspace/legal_data/
+│
+├── raw_documents/
+│   ├── acts/
+│   ├── rules/
+│   └── regulations/
+│
+├── bronze/
+│   └── legal_documents/
+│
+├── silver/
+│   └── legal_sections/
+│
+├── gold/
+│   └── legal_chunks/
+│
+├── vector_exports/        (optional persistence)
+└── logs/
 ```
 
-Health:
+---
 
-```bash
-curl http://127.0.0.1:8000/health
+## 🗃️ Databricks Tables (Unity Catalog Managed)
+
+```
+workspace.legal_data.bronze_legal_documents
+workspace.legal_data.silver_legal_sections
+workspace.legal_data.gold_legal_chunks
 ```
 
-Answer:
+These tables are managed using Delta Lake.
 
-```bash
-curl -X POST http://127.0.0.1:8000/v1/legal/answer \
-  -H "Content-Type: application/json" \
-  -d "{\"query\":\"What is the penalty for not wearing a helmet?\",\"style\":\"short\",\"word_limit\":120}"
+---
+
+## ⚡ Vector Storage Location
+
+For fast vector search:
+
+```
+/local_disk0/tmp/chroma_db/
 ```
 
-### 13.3 Streamlit Run
+### Why local disk?
 
-```bash
-streamlit run apps/streamlit_app.py
+* supports SQLite & mmap
+* high performance
+* required by ChromaDB engine
+
+---
+
+## 🧰 Technologies Used
+
+### ☁️ Platform
+
+* **Databricks Lakehouse**
+* Unity Catalog
+* Delta Lake
+
+### 🧠 NLP & AI
+
+* Sentence Transformers
+* MiniLM embedding model
+* ChromaDB vector search
+
+### 📄 Document Processing
+
+* pdfplumber
+* text extraction & parsing
+
+### 🧱 Data Engineering
+
+* Apache Spark
+* PySpark
+* Delta format
+
+---
+
+## ⚙️ How Databricks is Utilized
+
+### Data Engineering
+
+✔ distributed PDF processing
+✔ scalable transformations
+
+### Lakehouse Storage
+
+✔ Delta tables
+✔ schema evolution & governance
+
+### Unity Catalog
+
+✔ centralized metadata
+✔ data lineage
+✔ governance & access control
+
+### Scalability
+
+✔ large document processing
+✔ parallel ingestion
+✔ production-ready pipelines
+
+---
+
+## 🧠 Embedding Model
+
+Current model:
+
+```
+sentence-transformers/all-MiniLM-L6-v2
 ```
 
-Optional API target:
+### Why chosen:
 
-```bash
-export LEXAI_API_BASE_URL=http://127.0.0.1:8000
-```
+✔ fast
+✔ efficient
+✔ strong semantic similarity
+✔ low compute cost
 
-Direct-engine mode:
+---
 
-```bash
-export LEXAI_STREAMLIT_DIRECT_ENGINE=1
-```
+## 🔎 Semantic Search Workflow
 
-## 14. Response Contract
+1️⃣ User query
+2️⃣ query → embedding
+3️⃣ vector similarity search
+4️⃣ retrieve relevant chunks
+5️⃣ return legal context
 
-Primary response fields:
+---
 
-- `answer`
-- `sections`
-- `citations[]`
-- `evidence[]`
-- `mode`
-- `retrieval_source`
-- `confidence`
-- `latency_ms`
-- `latency_profile`
+## 🎯 Example Queries
 
-This contract is exposed by FastAPI and used by Streamlit.
+* “penalty for not wearing helmet”
+* “privacy rights in India”
+* “environment protection violations”
+* “consumer rights refund law”
 
-## 15. Quality Controls
+---
 
-- Confidence-aware fallback when evidence quality is low.
-- Citation-first output style to reduce hallucination risk.
-- Retrieval latency profiling (candidate fetch, lexical, dense, rerank, generation).
-- Preference-driven output length/style in query handling.
+## 📈 Current Working Features
 
-## 16. Performance Guidance
+✔ PDF ingestion pipeline
+✔ legal text extraction
+✔ section identification
+✔ semantic chunking
+✔ vector embeddings
+✔ semantic search
+✔ metadata-based retrieval
 
-- Keep lexical artifacts persisted; avoid rebuilding every session.
-- Use shortlist-first retrieval, then dense and rerank on shortlist.
-- Cache model loads per process.
-- Keep embedding artifacts in Delta; load once into in-memory runtime index.
-- Use batching in embed/rerank where possible.
+---
 
-## 17. Reliability and Idempotency Guidance
+## 📊 Accuracy & Retrieval Quality
 
-- Avoid ephemeral-only storage for critical artifacts.
-- Persist embeddings in Delta path under volumes.
-- Use deterministic IDs (`doc_id`, `section_id`, `chunk_id`) to support re-runs.
-- Implement overwrite/upsert rules explicitly for repeated notebook runs.
-- In serverless, expect session restarts and reinitialize runtime metadata each run.
+### Current Accuracy Drivers
 
-## 18. Databricks Serverless Caveats
+✔ semantic embeddings
+✔ context-preserving chunks
+✔ legal structure segmentation
 
-Known limitations on free/serverless environments:
+### Observed performance
 
-- Driver-proxy URL may return `connection refused`.
-- Cluster/session IDs change frequently.
-- Previous proxy URLs become invalid after compute restart.
-- Long-running app processes may be interrupted or not externally routable.
+* high relevance for section-level queries
+* strong results for regulatory questions
+* effective semantic matching
 
-Practical rule:
+---
 
-- Treat notebook UI serving on free serverless as best-effort.
-- Use notebook direct-engine outputs for validation.
-- Use local runtime or managed serving for stable app access.
+## ⚠️ Current Limitations
 
-## 19. Troubleshooting
+### Document Processing
 
-### Error: `INVALID_STATE ... cluster is Terminated`
+* scanned PDFs require OCR
+* formatting inconsistencies affect parsing
 
-Cause:
+### Retrieval
 
-- URL built with stale cluster ID.
+* no reranking model yet
+* keyword hybrid search not implemented
 
-Action:
+### Vector Persistence
 
-- Reattach compute.
-- Rerun metadata cells.
-- Use newly printed URL only from current session.
+* local storage resets on cluster restart
 
-### Error: `upstream connect error ... connection refused`
+---
 
-Cause:
+## 🛠️ Known Issues & Challenges
 
-- Driver-proxy cannot reach app port in serverless runtime.
+### 🔹 OCR Limitations
 
-Action:
+Scanned documents require OCR integration.
 
-- Use direct-engine notebook mode for testing.
-- Move serving UI/API to local runtime.
+### 🔹 Legal Formatting Variability
 
-### Error: `No module named streamlit`
+Different acts follow different formatting styles.
 
-Action:
+### 🔹 Chunk Boundary Accuracy
 
-- Install with `%pip install streamlit>=1.36` in runtime.
+Improvement possible with structure-aware chunking.
 
-### Error: `cannot import name TypeIs from typing_extensions`
+### 🔹 Vector DB Persistence
 
-Action:
+Local storage resets when cluster restarts.
 
-- Upgrade `typing_extensions>=4.6.0` and restart Python runtime.
+---
 
-### Error: notebook path not found in adapter
+## 🚀 Future Enhancements
 
-Action:
+### ⭐ High Impact Improvements
 
-- Use Databricks workspace object path (often without `.ipynb` in Repos).
-- Ensure snapshot fallback file exists in `apps/`.
+#### 🔹 OCR Integration
 
-### ngrok DNS/connect errors
+* Tesseract OCR
+* Azure Form Recognizer
 
-Cause:
+#### 🔹 Structure-Aware Chunking
 
-- Runtime DNS egress blocked.
+Preserve legal hierarchy & context.
 
-Action:
+#### 🔹 Hybrid Search
 
-- Disable ngrok fallback.
-- Use driver-proxy if available, otherwise run UI locally.
+Combine keyword + vector search.
 
-## 20. Security and Governance
+#### 🔹 Reranking Model
 
-- Keep source legal data in governed Unity Catalog locations.
-- Restrict access to sensitive datasets by catalog/schema permissions.
-- Use audit logs and lineage for regulated environments.
-- Treat generated answers as assistive output, not final legal advice.
+Improve top result precision.
 
-## 21. Roadmap
+#### 🔹 Legal Metadata Enrichment
 
-Near-term:
+Add jurisdiction, penalties, domain tags.
 
-- Formal offline evaluation suite (`precision@k`, `recall@k`, citation hit rate).
-- Better domain routing (`acts`/`constitution` first, case law when requested).
-- Hybrid lexical+dense retrieval tuning with hard negative tests.
+#### 🔹 RAG Legal Assistant
 
-Mid-term:
+Generate legal answers with citations.
 
-- Decouple notebook runtime into reusable Python package.
-- Dedicated service deployment (containerized API + worker + vector service).
-- Policy guardrails and compliance audit traces.
+#### 🔹 Vector Persistence Strategy
 
-Long-term:
+Store embeddings in Delta Lake.
 
-- Fine-tuned legal generation model pipeline.
-- Multi-jurisdiction and multilingual legal reasoning support.
+#### 🔹 Evaluation Metrics
 
-## 22. Disclaimer
+Measure recall@k & precision.
 
-This project provides AI-generated legal information for research and assistance. It is not a substitute for professional legal advice or representation.
+#### 🔹 Legal Domain Embeddings
+
+Fine-tune embeddings for legal text.
+
+#### 🔹 API Deployment
+
+Serve search via REST API.
+
+---
+
+## 🧪 Performance Optimization Opportunities
+
+* GPU embedding acceleration
+* caching frequent queries
+* index warm-up strategies
+* Delta optimization & ZORDER
+
+---
+
+## 🔐 Governance & Enterprise Readiness
+
+With Unity Catalog:
+
+✔ data lineage
+✔ access control
+✔ audit logging
+✔ compliance support
+
+---
+
+## 🎯 Business & Industry Value
+
+LexAI enables:
+
+✔ faster legal research
+✔ compliance automation
+✔ enterprise legal intelligence
+✔ AI-powered policy search
+✔ legal assistant development
+
+---
+
+## 🧩 Use Cases
+
+### Legal Professionals
+
+Quickly locate relevant legal provisions.
+
+### Enterprises
+
+Compliance & regulatory intelligence.
+
+### Government & Policy Teams
+
+Policy search & interpretation.
+
+### AI Legal Assistants
+
+Foundation for conversational legal AI.
+
+---
+
+## 🏆 Project Significance
+
+This project demonstrates:
+
+✔ Lakehouse architecture
+✔ AI-powered search
+✔ large-scale data engineering
+✔ enterprise governance
+✔ real-world legal intelligence
+
+This is an **industry-grade AI + data engineering project**.
+
+---
+
+## 📌 One-Line Summary
+
+**LexAI transforms raw legal documents into structured knowledge and enables semantic legal search using Databricks and AI-powered embeddings.**
+
+---
+
+## 🤝 Contribution Guidelines
+
+Future contributors can:
+
+✔ add OCR support
+✔ improve chunking accuracy
+✔ integrate hybrid search
+✔ add evaluation metrics
+✔ build legal RAG chatbot
+
+---  
+01-
+02-
+
+
+Just tell me 🚀
+
+---
+
+## API + UI Integration (Notebook 06)
+
+You can expose the high-precision QA engine behind API/UI now.
+
+See:
+
+- [apps/README.md](apps/README.md)
+- `apps/fastapi_app.py`
+- `apps/streamlit_app.py`
+
+This integration returns citation-rich responses (`answer`, `sections`, `citations`, `evidence`, latency metrics) and reuses notebook 06 runtime logic through a notebook adapter.
