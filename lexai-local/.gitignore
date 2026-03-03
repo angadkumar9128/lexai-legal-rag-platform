@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Vector DB files
+vector_store/faiss_index.bin
+vector_store/metadata.pkl
+
+# Data files
+data/gold_chunks.parquet
+
+# OS files
+.DS_Store
+Thumbs.db

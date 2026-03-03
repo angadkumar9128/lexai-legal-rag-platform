@@ -1,0 +1,2 @@
+"""LexAI local RAG package."""
+
